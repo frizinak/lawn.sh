@@ -1,0 +1,3 @@
+  back              <d>  lawnsh:goto:main
+#!                        $LAWNSH/movies.sh
+ﰇ  reload            < >  lawnsh:reload

@@ -1,0 +1,282 @@
+#! /bin/sh
+set -e
+
+deliml='<'
+delimr='>'
+type=
+fzf=fzf
+
+app_name="lawnsh"
+app_name_uc="$(echo "$app_name" | tr '[:lower:]' '[:upper:]')"
+
+trim() {
+    sed -e 's/^\s*//g' -e 's/\s*$//g'
+}
+
+internal() (
+    case "$1" in
+        "")
+            return 1
+            ;;
+
+        "reload")
+            main "$type"
+            return 0
+            ;;
+        "goto")
+            main "$2"
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+)
+
+# $1 = flags
+# $2 = cmd
+run() (
+    cmd="$2"
+    f="$1"
+    if [ "$(echo "$cmd" | cut -d':' -f1)" = "$app_name" ]; then
+        internal $(echo "$cmd" | cut -d':' -f2- --output-delimiter=' ')
+        return
+    fi
+
+    while [ "$f" != "" ]; do
+        chr=
+        case "$f" in
+            *d*)
+                chr=ds
+                cmd="nohup /bin/sh -c \"$cmd &\" >/dev/null 2>&1"
+                ;;
+            *s*)
+                chr=s
+                cmd="/bin/sh -c '$cmd'"
+                ;;
+            *)
+                break
+                ;;
+        esac
+
+        f="$(echo "$f" | tr -d "$chr")"
+    done
+
+    eval " $cmd"
+)
+
+format() {
+    echo "$1" >&2
+    echo "$1" | cut -d"$deliml" -f1 >&1
+}
+
+evaluate_format() {
+    if [ "$1" = "" ]; then
+        return
+    fi
+
+    eval " $1" | while read -r _out; do
+        format "$_out"
+    done
+}
+
+# $1 = dir
+# $2 = path
+make_list() {
+    _dir="$1"
+    _path="$2"
+    if [ ! -e "$_path" ]; then
+        return 1
+    fi
+
+    export $app_name_uc="$_dir"
+    _script=
+    while read -r _line; do
+        case "$_line" in
+            "#:"*)
+                _script="$_script
+                $(echo "$_line" | sed 's/^#://')"
+                ;;
+            *)
+                evaluate_format "$_script"
+                _script=
+                ;;
+        esac
+
+        case "$_line" in
+            "#!"*)
+                evaluate_format "$(echo "$_line" | sed 's/^#!//')"
+                ;;
+            "#"* | "")
+                ;;
+            *)
+                format "$_line"
+                ;;
+        esac
+    done < "$_path"
+
+    evaluate_format "$_script"
+}
+
+# $1 = path
+parse_options() {
+    while read -r _line; do
+        case "$_line" in
+            "#="*)
+                ;;
+            *)
+                continue
+                ;;
+        esac
+
+        _assign="$(echo "$_line" | sed 's/^#=\s*//')"
+        _key="$(echo "$_assign" | cut -d' ' -f1)"
+        _value="$(echo "$_assign" | cut -d' ' -f2- | trim)"
+
+        case "$_key" in
+            "fzf")
+                fzf="$_value"
+                ;;
+        esac
+    done < "$1"
+}
+
+# $1 = path
+create_conf() {
+    {\
+        dump_conf; \
+        echo; \
+        echo '# You can delete/comment these lines (and/or the ones above):'; \
+        printf "%-60s %3s %s\n" "Welcome to $app_name."         "<s>" "\"\$EDITOR\" \"$1\""; \
+        printf "%-60s %3s %s\n" "Edit '$1'"                     "<s>" "\"\$EDITOR\" \"$1\""; \
+        printf "%-60s %3s %s\n" "to customize it to our liking" "<s>" "\"\$EDITOR\" \"$1\""; \
+    } > "$1"
+}
+
+dump_conf() {
+    cat <<EOF
+# $app_name_uc config file
+#
+# FORMAT:
+# 1) label <FLAGS> COMMAND
+#                         static definition of a command.
+# 2) #! executable
+#                         lines starting with #! will be executed and should
+#                         echo lines matching FORMAT(1)
+#                         $app_name_uc env variable will be set to the config
+#                         directory of $app_name.
+# 3) #: script
+#                         lines starting with #: will be eval'ed inline
+#                         and should echo lines matching FORMAT(1).
+# 4) #=key value
+#                         set a config option.
+#                         one of:
+#                           - fzf: override fzf commandline
+#
+#
+# FLAGS:
+#     d:  detach from terminal
+#     s:  run in shell
+#
+# COMMAND:
+#     anything executable by your shell.
+#
+#     $app_name:reload
+#                         reload the current view.
+#
+#     $app_name:goto:N
+#                         reload $app_name with a new view
+#                         where N is the name of the config file.
+#
+#
+# Example 1: ~/.config/$app_name/main:
+#
+# #=fzf    fzf --border=rounded --layout=reverse-list
+#
+# terminal <d> xterm
+# browser  <d> chromium
+# say hi   <s> echo 'ereht ih' | rev; sleep 5
+# a view   < > $app_name:goto:view
+#
+# #: # Movies
+# #: find my-movies -type f -iname '*.mp4' | while read -r line; do
+# #:     echo "\$(basename "\$line" | tr -d '<>') <d> mpv --fs '\$line'"
+# #: done
+#
+# #! \$$app_name_uc/movies.sh
+# reload   < > $app_name:reload
+#
+# Example 2: ~/.config/$app_name/view:
+#
+# back < > $app_name:goto:main
+EOF
+    return 0
+}
+
+# $1 = type
+main() {
+    for i in "$@"; do
+        case "$i" in
+            "-h")
+                echo "$app_name <flags> [view]"
+                echo
+                echo "flags:"
+                echo "  -h: show this and exit"
+                echo "  -c: show config info and exit"
+                exit
+                ;;
+            "-c")
+                dump_conf
+                exit
+                ;;
+        esac
+    done
+
+    dir="$HOME/.config/$app_name"
+    main="$dir/main"
+    if [ ! -e "$main" ]; then
+        echo "first run, creating config: $main"
+        mkdir "$dir" 2>/dev/null || true
+        create_conf "$main"
+    fi
+
+    parse_options "$main"
+
+    type="$1"
+    if [ "$type" = "" ]; then
+        type="$(basename "$main")"
+    fi
+    path="$dir/$type"
+
+    if [ "$main" != "$path" ]; then
+        parse_options "$path"
+    fi
+
+    listfFlags=""
+    if [ -e "/dev/shm" ]; then
+        listfFlags="-p /dev/shm"
+    fi
+    listf="$(mktemp $listfFlags)"
+    sel="$(make_list "$dir" "$path" 2>"$listf" | eval " $fzf")"
+    list="$(cat "$listf")"
+    rm -f "$listf"
+
+    line="$(echo "$list" | grep -F -e "$sel")"
+    n=$(echo "$line" | wc -l)
+    if [ "$n" -gt 1 ]; then
+        echo 'multiple commands for same label' >&2
+        return 1
+    fi
+
+    flags="$(echo "$line" | cut -d"$deliml" -f2 | cut -d"$delimr" -f1)"
+    cmd="$(echo "$line" | cut -d"$delimr" -f2- | trim)"
+
+    if [ "$cmd" = "" ]; then
+        echo 'no command to run' >&2
+        return 1
+    fi
+
+    run "$flags" "$cmd"
+}
+
+main "$1"

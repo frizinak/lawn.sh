@@ -1,0 +1,23 @@
+# icons require https://github.com/ryanoasis/nerd-fonts
+
+  st              <d>  st -e /usr/bin/nvim +T
+ﳜ  movies          < >  lawnsh:goto:movies
+  pavucontrol     <d>  pavucontrol
+  rawtherapee     <d>  rawtherapee
+爵 qutebrowser     < >  awesome-client 'browser()'
+﬐  chat            < >  awesome-client 'chat()'
+  music           < >  awesome-client 'music()'
+  mail            < >  awesome-client 'mail()'
+  lockit          <d>  lockit
+  home            <d>  home
+  home kill       <d>  home kill
+  cpu snail       <d>  cpu snail
+  cpu low         <d>  cpu low
+  cpu max         <d>  cpu max
+  cpu turbo       <d>  cpu turbo
+  cpu ondemand    <d>  cpu ondemand
+  powersave       <d>  powersave
+  powersave off   <d>  powersave off
+  awe             <d>  awe
+
+#= fzf             fzf --border=rounded --layout=reverse-list --bind 'ctrl-c:clear-query'
