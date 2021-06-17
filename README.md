@@ -9,7 +9,9 @@ and pipes it all to fzf.
 
 See examples/ and config header below.
 
-![screenshot](https://github.com/frizinak/lawn.sh/raw/dev/examples/screen.webp)
+obligatory animation: (of fzf really...)
+
+![screenshot](https://github.com/frizinak/lawn.sh/raw/dev/examples/screen.gif)
 
 
 ## Requirements
@@ -18,7 +20,7 @@ See examples/ and config header below.
 
 ## Installation
 
-Add `lawnsh` to your path or wrap it. E.g: 
+Add `lawnsh` to your PATH or wrap it. E.g:
 `st -c 'st-launcher' -f arcade12pxbmp:pixelsize=36 -e ~/dev/lawnsh/lawnsh`
 
 ## Config info

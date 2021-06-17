@@ -20,4 +20,4 @@
   powersave off   <d>  powersave off
   awe             <d>  awe
 
-#= fzf             fzf --border=rounded --layout=reverse-list --bind 'ctrl-c:clear-query'
+#= fzf             fzf +m --color=16,bg+:1,fg+:0:regular,gutter:8,hl:1,hl+:0:regular --no-info --layout=reverse-list --bind 'ctrl-c:clear-query' --no-bold --no-clear
